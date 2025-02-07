@@ -330,7 +330,7 @@ public:
  * @brief Representa los modos posibles dentro de una expresión llave-valor.
  */
 enum Modo {
-  ADENTRO, ///< Indica que se está dentro de una estructura.
+  LLAVE, ///< Indica que se está dentro de una estructura.
   VALOR    ///< Indica que se está procesando un valor.
 };
 
@@ -548,7 +548,7 @@ class ExpresionJsonCompleta {
 private:
   Cola<char> *buffer; ///< Buffer para almacenar la representación de la
                       ///< expresión JSON validada.
-  Pila<char> *pila; ///< Pila para manejar la validación de llaves y comillas.
+  Pila<char> *pila;   ///< Pila para manejar la validación de llaves y comillas.
   bool llavehabilitada; ///< Bandera para controlar si se permite abrir nuevas
                         ///< llaves.
 
@@ -590,6 +590,9 @@ public:
  */
 bool ExpresionJsonCompleta::validar(ifstream &archivo) {
   bool aux = validarExpresion(archivo);
+  if(aux==false){
+    return false;
+  }
   char c;
   if (archivo.eof()) {
     return aux;
@@ -597,7 +600,7 @@ bool ExpresionJsonCompleta::validar(ifstream &archivo) {
   while (archivo >> c) {
     if (c == ' ')
       continue;
-    cerr << "Hay caracteres fuera de las llaves principales";
+    cerr << "Error: Hay caracteres fuera de las llaves principales";
     return false;
   }
   return aux;
@@ -624,7 +627,7 @@ bool ExpresionJsonCompleta::validarExpresion(ifstream &archivo) {
   // Variables auxiliares para controlar el estado de la validacion.
   bool dospuntoshabilitado = false; // Para controlar si se ha encontrado dos
                                     // puntos después de una clave.
-  Modo modo = ADENTRO;              // Modo de analisis actual: ADENTRO o VALOR.
+  Modo modo = LLAVE;              // Modo de analisis actual: LLAVE o VALOR.
   char c; // Variable para almacenar el caracter leido.
   bool llaveterminada = false;
   // Iterar sobre cada caracter del archivo.
@@ -670,8 +673,8 @@ bool ExpresionJsonCompleta::validarExpresion(ifstream &archivo) {
         cerr << "Error: Formato del valor incorrecto." << endl;
         return false;
       }
-      // Volver al modo ADENTRO despues de validar el valor.
-      modo = ADENTRO;
+      // Volver al modo LLAVE despues de validar el valor.
+      modo = LLAVE;
       llaveterminada = true;
       continue;
     }
@@ -716,7 +719,7 @@ bool ExpresionJsonCompleta::validarExpresion(ifstream &archivo) {
       return false;
     }
 
-    // Manejo de comillas '"' en modo ADENTRO o COMILLAS.
+    // Manejo de comillas '"' en modo LLAVE o COMILLAS.
     else if (c == '"') {
       if (!dospuntoshabilitado) {
         if (pila->tope() == '"') {
@@ -798,23 +801,30 @@ bool ExpresionLlaveJSON::validarExpresion(ifstream &archivo) {
 int main(int argc, char *argv[]) {
   string carpeta = "jsontexts/";
   string direccion = "json.json";
+  ofstream archivoescritura("jsonValidacion.txt");
+   if (!archivoescritura) {
+    cerr << "no se pudo abrir el archivo al cual queremos escribir";
+    exit(EXIT_FAILURE);
+  }
+  streambuf* cerr_buffer = cerr.rdbuf();
+  cerr.rdbuf(archivoescritura.rdbuf());
+
+
   if (argc > 1) {
     direccion = argv[1];
   }
   ifstream archivo(carpeta + direccion);
   if (!archivo) {
     cerr << "no se pudo abrir el archivo" << endl;
-    return -1;
+   exit(EXIT_FAILURE);
   }
   ExpresionJsonCompleta *exp = new ExpresionJsonCompleta();
   if (!exp->validar(archivo)) {
-    return -1;
+    archivoescritura<< endl << "El archivo Json no es valido." <<endl;
+    exit(EXIT_FAILURE);
   }
-  ofstream archivoescritura("json.txt");
-  if (!archivoescritura) {
-    cerr << "no se pudo abrir el archivo al cual queremos escribir";
-  }
+  archivoescritura << "El archivo Json es valido."<<endl;
   archivoescritura << exp->getBuffer()->imprimir("");
   delete exp;
-  return 0;
+  exit(EXIT_SUCCESS);
 }
